@@ -10,7 +10,6 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -48,7 +47,7 @@ func setlimit() {
 
 func main() {
 	args := make(map[uint32][]string)
-
+	errMap := make(map[uint32]uint32)
 	setlimit()
 
 	objs := sysExecveObjects{}
@@ -88,9 +87,7 @@ func main() {
 			}
 			if data.Arg_size > 127 {
 				// abnormal
-				if bs, err := json.Marshal(data); err == nil {
-					log.Printf("[err]abnormal data: %s", string(bs))
-				}
+				errMap[data.Pid] = 1
 			} else {
 				e = append(e, string(data.Args[:data.Arg_size]))
 				args[data.Pid] = e
@@ -101,12 +98,13 @@ func main() {
 			if !ok {
 				continue
 			}
-			// fmt.Printf("<type> %d <cpu> %02d <Common> %s <Pid> %d <Tgid> %d <Uid> %d <Gid> %d <FileNamme> %s <Args> %s <Size> %d\n",
-			// 	data.Type, ev.CPU, data.Comm, data.Pid, data.Tgid, data.Uid, data.Gid, data.F_name, data.Args, data.Arg_size)
-			fmt.Printf("<Pid> %d <Common> %s <Exe> %s <Cmdline> %s\n",
-				data.Pid, data.Comm, data.F_name, strings.TrimSpace(strings.Replace(strings.Join(argv, " "), "\n", "\\n", -1)))
+			if _, ok := errMap[data.Pid]; ok {
+				fmt.Printf("[ERROR] bpf_probe_read_str occur error, cmdline: %s\n", strings.TrimSpace(strings.Replace(strings.Join(argv, " "), "\n", "\\n", -1)))
+				delete(errMap, data.Pid)
+			}
+
+			fmt.Printf("[INFO] Pid: %d <Cmdline> %s\n", data.Pid, strings.TrimSpace(strings.Replace(strings.Join(argv, " "), "\n", "\\n", -1)))
 			delete(args, data.Pid)
-			// fmt.Println(len(args))
 		}
 	}
 }

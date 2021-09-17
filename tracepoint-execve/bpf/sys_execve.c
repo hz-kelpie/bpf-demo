@@ -41,42 +41,27 @@ struct execve_entry_args_t {
 SEC("tracepoint/syscalls/sys_enter_execve")
 int enter_execve(struct execve_entry_args_t *ctx)
 {
-	// bpf_printk("execve syscall traced!");
+	bpf_printk("execve syscall traced!");
 	struct exec_data_t exec_data = {};
     // 参数地址
 	const char* argp = NULL;
 	exec_data.pid = bpf_get_current_pid_tgid();
-
-    // 命令行参数都是用户空间分配的，所以用***_user_str
-	// https://stackoverflow.com/questions/67188440/ebpf-cannot-read-argv-and-envp-from-tracepoint-sys-enter-execve
-    // 先读取第一个参数地址，在读取第一个参数内容
-    int err = bpf_probe_read(&argp, sizeof(argp), &ctx->argv[0]);
-	int result = bpf_probe_read_str(exec_data.args, ARGSIZE, argp);
     
-    char msg[] = "reading arg string %d %d %d\n";
-    bpf_trace_printk(msg, sizeof(msg), result, err, argp);
-    if (result < 0) {
-        return 0;
+	// https://stackoverflow.com/questions/67188440/ebpf-cannot-read-argv-and-envp-from-tracepoint-sys-enter-execve
+    // bpf_probe_read(&argp, sizeof(argp), &ctx->argv[0]);
+	// bpf_probe_read_user_str(exec_data.args, ARGSIZE, argp);
+    // bpf_perf_event_output(ctx, &execve_perf_map, BPF_F_CURRENT_CPU, &exec_data, sizeof(exec_data));
+	#pragma unroll
+    for (__s32 i = 0; i < DEFAULT_MAXARGS; i++)
+    {
+		bpf_probe_read(&argp, sizeof(argp), &ctx->argv[i]);
+		if (!argp) {
+			goto finish;
+		}
+        exec_data.arg_size = bpf_probe_read_str(exec_data.args, ARGSIZE, argp);
+        bpf_perf_event_output(ctx, &execve_perf_map, BPF_F_CURRENT_CPU, &exec_data, sizeof(exec_data));
     }
-    exec_data.arg_size = result;
-    bpf_perf_event_output(ctx, &execve_perf_map, BPF_F_CURRENT_CPU, &exec_data, sizeof(exec_data));
-    // 从第二个参数开始处理
-    // 告诉编译器，不做循环展开
-    // #pragma unroll
-    // for (__s32 i = 0; i < DEFAULT_MAXARGS; i++)
-    // {
-    //     // 读取后续参数地址
-	// 	bpf_probe_read(&argp, sizeof(argp), &ctx->argv[i]);
-	// 	if (!argp) {
-	// 		goto finish;
-	// 	}
-    //     // 地址为空，说明没有参数
-    //     exec_data.arg_size = bpf_probe_read_str(exec_data.args, ARGSIZE, argp);
-    //     bpf_perf_event_output(ctx, &execve_perf_map, BPF_F_CURRENT_CPU, &exec_data, sizeof(exec_data));
-    // }
-    // // 参数超出上限，不继续处理 TODO
-	// finish:
-
+	finish:
     exec_data.type = 1;
     exec_data.tgid = bpf_get_current_pid_tgid() >> 32;
     exec_data.uid = bpf_get_current_uid_gid();

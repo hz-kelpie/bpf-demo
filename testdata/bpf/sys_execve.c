@@ -33,11 +33,11 @@ int enter_execve(struct execve_entry_args_t *ctx)
 	#pragma unroll
     for (__s32 i = 0; i < DEFAULT_MAXARGS; i++)
     {
-		bpf_probe_read(&argp, sizeof(argp), &ctx->argv[i]);
+		bpf_probe_read_user(&argp, sizeof(argp), &ctx->argv[i]);
 		if (!argp) {
 			return 0;;
 		}
-        int size = bpf_probe_read_str(args, ARGSIZE, argp);
+        int size = bpf_probe_read_user_str(args, ARGSIZE, argp);
         if (size  < 0) {
             bpf_printk("[ERROR] bpf_probe_read failed, [size]:%d [tgid]:%d\n",size,bpf_get_current_pid_tgid() >> 32);
         } else {

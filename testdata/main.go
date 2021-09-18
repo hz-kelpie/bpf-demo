@@ -23,11 +23,9 @@ func main() {
 	loadSysExecveObjects(&objs, nil)
 	link.Tracepoint("syscalls", "sys_enter_execve", objs.EnterExecve)
 
-	c := make(chan os.Signal)
-	//监听所有信号
-	signal.Notify(c)
-	//阻塞直到有信号传入
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch)
 	fmt.Println("start")
-	s := <-c
+	s := <-ch
 	fmt.Println("exit", s)
 }

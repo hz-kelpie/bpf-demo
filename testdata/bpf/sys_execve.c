@@ -18,7 +18,7 @@ struct execve_entry_args_t {
 SEC("tracepoint/syscalls/sys_enter_execve")
 int enter_execve(struct execve_entry_args_t *ctx)
 {
-	bpf_printk("execve syscall traced!");
+	// bpf_printk("execve syscall traced!");
     // 参数地址
 	const char* argp = NULL;
     char fname[FNAME_LEN];
@@ -39,12 +39,12 @@ int enter_execve(struct execve_entry_args_t *ctx)
 		}
         int size = bpf_probe_read_str(args, ARGSIZE, argp);
         if (size  < 0) {
-            bpf_printk("[ERROR] bpf_probe_read failed, [size]:%d [tgid]:%d",size,bpf_get_current_pid_tgid() >> 32);
+            bpf_printk("[ERROR] bpf_probe_read failed, [size]:%d [tgid]:%d\n",size,bpf_get_current_pid_tgid() >> 32);
         } else {
-            bpf_printk("[INFO] [tgid]:%d [arg]:%s",bpf_get_current_pid_tgid() >> 32, args);
+            bpf_printk("[INFO] [tgid]:%d [arg]:%s\n",bpf_get_current_pid_tgid() >> 32, args);
         }
     }
-    bpf_printk("[WARN] more than 20 args! [tgid]:%d",bpf_get_current_pid_tgid() >> 32);
+    bpf_printk("[WARN] more than 20 args! [tgid]:%d\n",bpf_get_current_pid_tgid() >> 32);
 	return 0;
 }
 
